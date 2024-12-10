@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Llama 챗봇</title>
+    <style>
+        #chat-container {
+            width: 500px;
+            height: 400px;
+            border: 1px solid #ccc;
+            overflow-y: scroll;
+            padding: 10px;
+            margin-bottom: 10px;
+            margin: 20px auto;
+        }
+        .message {
+            margin-bottom: 10px;
+            padding: 8px;
+            border-radius: 5px;
+        }
+        .user-message {
+            background-color: #e3f2fd;
+            margin-left: 20px;
+            text-align: left;
+        }
+        .bot-message {
+            background-color: #f5f5f5;
+            margin-right: 20px;
+            text-align: left;
+        }
+        .response-time {
+            font-size: 0.8em;
+            color: #666;
+            margin-top: 4px;
+            font-style: italic;
+        }
+        .input-container {
+            width: 500px;
+            margin: 0 auto;
+            display: flex;
+            gap: 10px;
+        }
+        #user-input {
+            flex-grow: 1;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        button {
+            padding: 8px 16px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <div id="chat-container"></div>
+    <div class="input-container">
+        <input type="text" id="user-input" placeholder="메시지를 입력하세요...">
+        <button onclick="sendMessage()">전송</button>
+    </div>
+
+    <script>
+        function sendMessage() {
+            const input = document.getElementById('user-input');
+            const message = input.value;
+            if (message.trim() === '') return;
+
+            displayMessage('user', message);
+            input.value = '';
+
+            // 시작 시간 기록
+            const startTime = new Date();
+            
+            // 로딩 메시지 표시
+            const loadingId = displayMessage('bot', '응답을 생성하는 중...');
+
+            fetch('/chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({message: message})
+            })
+            .then(response => response.json())
+            .then(data => {
+                // 응답 시간 계산
+                const endTime = new Date();
+                const responseTime = (endTime - startTime) / 1000; // 초 단위로 변환
+                
+                // 로딩 메시지 제거
+                const container = document.getElementById('chat-container');
+                const loadingMessage = document.getElementById(loadingId);
+                if (loadingMessage) {
+                    container.removeChild(loadingMessage);
+                }
+                
+                // 응답 메시지와 함께 응답 시간 표시
+                displayMessage('bot', data.response, responseTime);
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                // 로딩 메시지 제거
+                const container = document.getElementById('chat-container');
+                const loadingMessage = document.getElementById(loadingId);
+                if (loadingMessage) {
+                    container.removeChild(loadingMessage);
+                }
+                
+                displayMessage('bot', '오류가 발생했습니다. 다시 시도해주세요.');
+            });
+        }
+
+        function displayMessage(sender, message, responseTime = null) {
+            const container = document.getElementById('chat-container');
+            const messageDiv = document.createElement('div');
+            const id = 'msg-' + Date.now();
+            messageDiv.id = id;
+            messageDiv.className = `message ${sender}-message`;
+            
+            // 메시지 내용
+            const messageContent = document.createElement('div');
+            messageContent.textContent = `${sender === 'user' ? '사용자' : '봇'}: ${message}`;
+            messageDiv.appendChild(messageContent);
+            
+            // 응답 시간 추가 (봇 메시지이고 응답 시간이 있는 경우)
+            if (sender === 'bot' && responseTime !== null) {
+                const timeDiv = document.createElement('div');
+                timeDiv.className = 'response-time';
+                timeDiv.textContent = `응답 시간: ${responseTime.toFixed(2)}초`;
+                messageDiv.appendChild(timeDiv);
+            }
+            
+            container.appendChild(messageDiv);
+            container.scrollTop = container.scrollHeight;
+            return id;
+        }
+
+        // Enter 키 입력 처리
+        document.getElementById('user-input').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+    </script>
+</body>
+</html>
